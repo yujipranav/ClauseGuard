@@ -1,5 +1,5 @@
-backend/venv/
-electron-app/dist/
-electron-app/node_modules/
+src/backend/venv/
+src/electron-app/dist/
+src/electron-app/node_modules/
 *.log
 .DS_Store
