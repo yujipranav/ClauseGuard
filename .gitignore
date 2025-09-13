@@ -1,0 +1,5 @@
+backend/venv/
+electron-app/dist/
+electron-app/node_modules/
+*.log
+.DS_Store

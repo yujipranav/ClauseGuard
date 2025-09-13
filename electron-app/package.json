@@ -1,0 +1,21 @@
+{
+  "name": "collabsentinel",
+  "version": "0.1.0",
+  "main": "main.js",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:win": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron-builder": "^24.13.3"
+  },
+  "dependencies": {
+    "electron": "^31.0.0"
+  },
+  "build": {
+    "appId": "com.collabsentinel.app",
+    "win": { "target": "nsis" },
+    "files": ["**/*", "!backend/**"]
+  }
+}

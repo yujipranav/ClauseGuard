@@ -1,0 +1,49 @@
+<!doctype html>
+<html>
+<head>
+  <meta charset="utf-8"/>
+  <title>CollabSentinel</title>
+  <style>
+    body{margin:0;font-family:system-ui,Segoe UI,Arial;}
+    .wrap{padding:14px}
+    .hdr{font-weight:600;margin-bottom:8px}
+    .box{border:1px solid #ddd;border-radius:10px;padding:12px;min-height:140px}
+    .actions{margin-top:10px;display:flex;gap:8px}
+    button{padding:6px 10px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer}
+    .blur{filter:blur(6px)}
+    .small{color:#666;font-size:12px}
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <div class="hdr">CollabSentinel</div>
+    <div id="mode" class="small">Press Ctrl/Cmd + Shift + R (Recap) or + S (Safe Share)</div>
+    <div id="content" class="box">Ready.</div>
+    <div class="actions"><button onclick="window.close()">Close</button></div>
+  </div>
+  <script>
+    async function render(mode){
+      const c = document.getElementById('content');
+      const m = document.getElementById('mode');
+      if(mode==='recap'){
+        m.textContent = 'Recap';
+        c.textContent = 'Fetching recap...';
+        const recap = await window.collab.fetchRecap();
+        c.textContent = recap;
+      } else if(mode==='safeshare'){
+        m.textContent = 'Safe Share';
+        c.innerHTML = `
+          <div>Recommended: <b>Q3 Planning Doc</b></div>
+          <div style="margin-top:8px">Sensitive:</div>
+          <div style="display:flex;gap:8px;margin-top:6px">
+            <div style="width:120px;height:70px;background:#eee" class="blur"></div>
+            <div style="width:120px;height:70px;background:#eee" class="blur"></div>
+          </div>
+          <div class="small" style="margin-top:6px">Demo thumbnails blurred</div>
+        `;
+      } else { m.textContent = 'Ready'; c.textContent = 'Ready.'; }
+    }
+    window.collab.onMode((m)=>render(m));
+  </script>
+</body>
+</html>
