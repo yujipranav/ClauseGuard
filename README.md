@@ -8,5 +8,7 @@ Hotkeys:
 1) Backend: `cd src/backend && python -m venv venv && venv\Scripts\activate && pip install flask && python server.py`
 2) Electron: `cd src/electron-app && npm install && npm start`
 
-## Build (Windows)
-`cd src/electron-app && npm run build:win`
+## Build
+- **Windows x86**: `cd src/electron-app && npm run build:win`
+- **macOS x86**: `cd src/electron-app && npm run build:mac`
+- **All platforms**: `cd src/electron-app && npm run build:all`

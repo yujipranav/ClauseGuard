@@ -5,7 +5,9 @@
   "private": true,
   "scripts": {
     "start": "electron .",
-    "build:win": "electron-builder --win"
+    "build:win": "electron-builder --win",
+    "build:mac": "electron-builder --mac",
+    "build:all": "electron-builder --win --mac"
   },
   "devDependencies": {
     "electron-builder": "^24.13.3"
@@ -15,7 +17,14 @@
   },
   "build": {
     "appId": "com.collabsentinel.app",
-    "win": { "target": "nsis" },
+    "win": { 
+      "target": "nsis",
+      "arch": ["x64", "ia32"]
+    },
+    "mac": {
+      "target": "dmg",
+      "arch": ["x64"]
+    },
     "files": ["**/*", "!backend/**"]
   }
 }
