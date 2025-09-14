@@ -4,46 +4,370 @@
   <meta charset="utf-8"/>
   <title>CollabSentinel</title>
   <style>
-    body{margin:0;font-family:system-ui,Segoe UI,Arial;}
-    .wrap{padding:14px}
-    .hdr{font-weight:600;margin-bottom:8px}
-    .box{border:1px solid #ddd;border-radius:10px;padding:12px;min-height:140px}
-    .actions{margin-top:10px;display:flex;gap:8px}
-    button{padding:6px 10px;border:1px solid #ccc;border-radius:8px;background:#fff;cursor:pointer}
+    :root{ --bg:#0f1115; --card:#171a21; --fg:#e9ecf1; --muted:#9aa3af; --border:#262b36; --accent:#6ea7ff; --danger:#ff6b6b; }
+    *{box-sizing:border-box}
+    html,body{height:100%}
+    body{margin:0;background:var(--bg);color:var(--fg);font:14px/1.5 system-ui,Segoe UI,Arial}
+    .titlebar{display:flex;align-items:center;gap:8px;padding:10px 12px;border-bottom:1px solid var(--border);-webkit-app-region:drag}
+    .badge{font-weight:700}
+    .spacer{flex:1}
+    .tb-btn{-webkit-app-region:no-drag;cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--muted);padding:6px 10px;border-radius:10px}
+    .tabs{display:flex;gap:6px;padding:8px 10px;border-bottom:1px solid var(--border)}
+    .tab{cursor:pointer;padding:6px 10px;border-radius:10px;border:1px solid var(--border);color:var(--muted)}
+    .tab.active{border-color:var(--accent);color:var(--fg);background:rgba(110,167,255,.1)}
+    .wrap{padding:12px}
+    .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;min-height:240px}
+    .hint{color:var(--muted);font-size:12px;margin-bottom:8px}
+    .row{display:flex;gap:10px;flex-wrap:wrap}
+    .thumb{width:160px;height:100px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
     .blur{filter:blur(6px)}
-    .small{color:#666;font-size:12px}
+    .cap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+    .btn{cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--fg);padding:6px 10px;border-radius:10px}
+    .btn.primary{border-color:var(--accent);background:rgba(110,167,255,.1)}
+    .btn.danger{border-color:var(--danger);color:var(--danger)}
+    .chip{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid var(--border);color:var(--muted);font-size:12px}
+    .row-right{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
+    .row-between{display:flex;align-items:center;justify-content:space-between;gap:8px}
+    .small{font-size:12px;color:var(--muted)}
+    video.cam{width:120px;height:72px;border-radius:10px;border:1px solid var(--border);background:#000}
+    textarea{width:100%;height:150px;border:1px solid var(--border);border-radius:10px;background:#0c0e12;color:var(--fg);padding:10px;resize:none}
   </style>
 </head>
 <body>
-  <div class="wrap">
-    <div class="hdr">CollabSentinel</div>
-    <div id="mode" class="small">Press Ctrl/Cmd + Shift + R (Recap) or + S (Safe Share)</div>
-    <div id="content" class="box">Ready.</div>
-    <div class="actions"><button onclick="window.close()">Close</button></div>
+  <!-- Header -->
+  <div class="titlebar">
+    <div class="badge">🛡️ CollabSentinel</div>
+    <div class="spacer"></div>
+    <button class="tb-btn" id="hideBtn">Hide</button>
+    <button class="tb-btn" id="quitBtn">Quit</button>
   </div>
+
+  <!-- Tabs -->
+  <div class="tabs">
+    <div class="tab active" data-tab="recap">Recap</div>
+    <div class="tab" data-tab="safeshare">Safe Share</div>
+    <div class="tab" data-tab="capture">Capture</div>
+  </div>
+
+  <!-- Content -->
+  <div class="wrap">
+    <div class="card" id="content">
+      <div class="hint">Press <b>Ctrl+Shift+R</b> (Recap) or <b>Ctrl+Shift+S</b> (Safe Share).</div>
+      <textarea readonly>Ready.</textarea>
+      <div class="row-right"><button class="btn" id="copyBtn" style="display:none">Copy Recap</button></div>
+    </div>
+  </div>
+
   <script>
-    async function render(mode){
-      const c = document.getElementById('content');
-      const m = document.getElementById('mode');
-      if(mode==='recap'){
-        m.textContent = 'Recap';
-        c.textContent = 'Fetching recap...';
-        const recap = await window.collab.fetchRecap();
-        c.textContent = recap;
-      } else if(mode==='safeshare'){
-        m.textContent = 'Safe Share';
-        c.innerHTML = `
-          <div>Recommended: <b>Q3 Planning Doc</b></div>
-          <div style="margin-top:8px">Sensitive:</div>
-          <div style="display:flex;gap:8px;margin-top:6px">
-            <div style="width:120px;height:70px;background:#eee" class="blur"></div>
-            <div style="width:120px;height:70px;background:#eee" class="blur"></div>
-          </div>
-          <div class="small" style="margin-top:6px">Demo thumbnails blurred</div>
-        `;
-      } else { m.textContent = 'Ready'; c.textContent = 'Ready.'; }
+    // Guard in case preload failed (prevents white screen)
+    if (!window.collab) {
+      document.body.innerHTML =
+        '<div style="padding:16px;color:#fff;background:#0f1115;font-family:system-ui">' +
+        '<h3 style="margin:0 0 8px 0">Preload failed to load</h3>' +
+        '<div>Check <code>preload.js</code>. Open DevTools (F12) for details.</div></div>';
     }
-    window.collab.onMode((m)=>render(m));
+
+    const content = document.getElementById('content');
+    const tabs = Array.from(document.querySelectorAll('.tab'));
+    function setActiveTab(name){ tabs.forEach(t=>t.classList.toggle('active',t.dataset.tab===name)); }
+
+    /* ------------------------- Recap ------------------------- */
+    async function showRecap(){
+      setActiveTab('recap');
+      content.innerHTML = `
+        <div class="hint">Latest recap (on-device).</div>
+        <textarea id="recapTxt" readonly>Fetching recap…</textarea>
+        <div class="row-right"><button id="copyBtn" class="btn">Copy Recap</button></div>
+      `;
+      const txt = await window.collab.fetchRecap();
+      const ta = document.getElementById('recapTxt');
+      ta.value = txt;
+      document.getElementById('copyBtn').onclick = async (ev)=>{
+        try{ await navigator.clipboard.writeText(txt); const b=ev.target;b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy Recap',900);}catch{}
+      };
+    }
+
+    /* ---------------------- Safe Share ----------------------- */
+    function showSafeShare(){
+      setActiveTab('safeshare');
+      content.innerHTML = `
+        <div class="hint">We blur likely sensitive windows (Slack, Gmail, Inbox, Jira, Teams, WhatsApp).</div>
+        <div id="grid" class="row">Loading windows…</div>
+      `;
+    }
+    function renderSafeData(items){
+      const grid = document.getElementById('grid');
+      if(!grid) return;
+      if(!items || !items.length){ grid.textContent='No windows/screens available.'; return; }
+      grid.innerHTML = items.map(s=>{
+        const sensitive = /slack|gmail|inbox|jira|teams|whatsapp/i.test(s.name);
+        return `<div style="text-align:center">
+          <img src="${s.thumb}" class="thumb ${sensitive?'blur':''}">
+          <div class="cap">${s.name}</div>
+          ${sensitive?'<div style="color:#ff9797;font-size:12px">Sensitive</div>':''}
+        </div>`;
+      }).join('');
+    }
+    function renderSafeError(msg){
+      const grid = document.getElementById('grid');
+      if(grid) grid.innerHTML = `<span style="color:#ff9797">${msg}</span>`;
+    }
+
+    /* --------- Meeting capture (continuous rolling buffer) --------- */
+    const BUFFER_MS = 120000;  // last 2 minutes
+    const PREROLL_MS = 15000;  // include 15s before "away"
+    const SLICE_MS  = 2000;    // recorder timeslice
+    const chunks = [];         // [{ts, blob}]
+    let meetCtx, meetRec, meetMime = '';
+    let screenStream = null, micStream = null, meetingReady = false;
+
+    function buildSegment(t0, t1) {
+      const seg = chunks.filter(c => c.ts >= t0 && c.ts <= t1).map(c => c.blob);
+      return seg.length ? new Blob(seg, { type: meetMime || 'audio/webm' }) : null;
+    }
+
+    async function ensureMeetingCapture(){
+      if (meetingReady) return true;
+
+      const status = document.getElementById('capStatus');
+      let screen = null, mic = null;
+
+      // try screen with audio -> fall back to video-only
+      try {
+        screen = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
+      } catch (e1) {
+        try {
+          screen = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+        } catch (e2) {
+          if (status) status.textContent = 'Screen capture not available: ' + (e2?.message || e2);
+          return false;
+        }
+      }
+
+      try {
+        mic = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation:true, noiseSuppression:true } });
+      } catch { mic = null; }
+
+      const ctx = new (window.AudioContext||window.webkitAudioContext)();
+      const dest = ctx.createMediaStreamDestination();
+
+      const sysTrack = screen.getAudioTracks().find(t => t.kind === 'audio');
+      if (sysTrack) ctx.createMediaStreamSource(new MediaStream([sysTrack])).connect(dest);
+      if (mic)      ctx.createMediaStreamSource(mic).connect(dest);
+
+      // need at least one audio source
+      if (dest.stream.getAudioTracks().length === 0) {
+        if (status) status.textContent = 'No audio source detected. Share ENTIRE screen (enable “Share system audio”) or allow Microphone in Windows Privacy settings.';
+        screen.getTracks().forEach(t=>t.stop());
+        return false;
+      }
+
+      const candidates = ['audio/webm;codecs=opus','audio/webm','audio/ogg;codecs=opus','audio/ogg'];
+      meetMime = candidates.find(m => MediaRecorder.isTypeSupported?.(m)) || '';
+      const mixed = new MediaStream(dest.stream.getAudioTracks());
+
+      try {
+        meetRec = new MediaRecorder(mixed, { mimeType: meetMime, audioBitsPerSecond: 128000 });
+      } catch (err) {
+        if (status) status.textContent = 'Recorder not supported: ' + err.message;
+        screen.getTracks().forEach(t=>t.stop()); mic?.getTracks().forEach(t=>t.stop());
+        return false;
+      }
+
+      meetRec.ondataavailable = (e)=>{
+        if (!e.data || e.data.size < 1024) return;
+        chunks.push({ ts: Date.now(), blob: e.data });
+        const cutoff = Date.now() - BUFFER_MS;
+        while (chunks.length && chunks[0].ts < cutoff) chunks.shift();
+      };
+      meetRec.start(SLICE_MS);
+
+      meetCtx = ctx; meetingReady = true;
+      screenStream = screen; micStream = mic;
+
+      // optional preview if on Capture tab
+      const preview = document.getElementById('preview');
+      if (preview) { preview.srcObject = screen; preview.muted = true; preview.play().catch(()=>{}); }
+
+      if (status) status.textContent = 'Meeting tap running (rolling buffer active).';
+      document.getElementById('startBtn')?.setAttribute('disabled','true');
+      document.getElementById('stopBtn')?.removeAttribute('disabled');
+      return true;
+    }
+
+    function manualStop(){
+      if (meetRec && meetRec.state !== 'inactive') meetRec.stop();
+      screenStream?.getTracks().forEach(t=>t.stop());
+      micStream?.getTracks().forEach(t=>t.stop());
+      meetRec = null; meetCtx = null; screenStream = null; micStream = null;
+      meetingReady = false; chunks.length = 0;
+      document.getElementById('startBtn')?.removeAttribute('disabled');
+      document.getElementById('stopBtn')?.setAttribute('disabled','true');
+      const st = document.getElementById('capStatus'); if (st) st.textContent = 'Stopped.';  // <- fixed
+    }
+
+    /* ---------- Capture tab (Recap + Capture together) ---------- */
+    function showCapture(){
+      setActiveTab('capture');
+      content.innerHTML = `
+        <div class="hint">Missed recap (generated when you look away and return):</div>
+        <textarea id="recapTxtCap" readonly>Nothing yet.</textarea>
+        <div class="row-right"><button class="btn" id="copyBtnCap">Copy Recap</button></div>
+
+        <div class="row-between" style="margin-top:6px">
+          <div class="hint">Tap the meeting (screen + system audio if available + mic). Rolling 2-min buffer runs locally.</div>
+          <div class="chip" id="attChip">👀 Watch: off</div>
+        </div>
+
+        <div class="row" style="margin-bottom:8px">
+          <button class="btn primary" id="startBtn">Start Meeting Tap</button>
+          <button class="btn danger" id="stopBtn" disabled>Stop</button>
+          <button class="btn" id="toggleWatchBtn">Auto Recap: Off</button>
+        </div>
+
+        <div id="capStatus" class="hint">Idle.</div>
+
+        <div class="row" style="margin-top:8px;align-items:center">
+          <video id="preview" style="flex:1;min-width:220px;border:1px solid var(--border);border-radius:10px;background:#000" muted playsinline></video>
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
+            <video id="cam" class="cam" muted playsinline></video>
+            <div class="small">Camera preview</div>
+          </div>
+        </div>
+      `;
+      document.getElementById('startBtn').onclick = manualStart;
+      document.getElementById('stopBtn').onclick  = manualStop;
+      document.getElementById('toggleWatchBtn').onclick = toggleWatch;
+      document.getElementById('copyBtnCap').onclick = async (ev)=>{
+        const txt = document.getElementById('recapTxtCap').value || '';
+        try { await navigator.clipboard.writeText(txt); const b=ev.target;b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy Recap',900);} catch {}
+      };
+    }
+
+    async function manualStart(){
+      const ok = await ensureMeetingCapture();
+      if (!ok) return; // status explains why
+    }
+
+    /* ---------------- Auto Recap (webcam attention) ---------------- */
+    let camStream=null, faceDetector=null, watching=false, away=false, awaySince=null, missStart=null, watchTimer=null;
+
+    async function toggleWatch(){
+      const btn  = document.getElementById('toggleWatchBtn');
+      const chip = document.getElementById('attChip');
+
+      if (!watching) {
+        const ok = await ensureMeetingCapture();
+        if (!ok) { alert('Enable mic or share Entire Screen with system audio, then try again.'); return; }
+
+        try { camStream = await navigator.mediaDevices.getUserMedia({ video:true, audio:false }); }
+        catch { alert('Camera permission denied.'); return; }
+
+        const camEl = document.getElementById('cam'); camEl.srcObject = camStream; await camEl.play();
+        if ('FaceDetector' in window) { try { faceDetector = new FaceDetector({ fastMode:true }); } catch { faceDetector = null; } }
+
+        watching = true; away=false; awaySince=null; missStart=null;
+        btn.textContent = 'Auto Recap: On'; chip.textContent = '👀 Watch: here';
+        watchTimer = setInterval(attentionTick, 400);
+      } else {
+        watching=false; clearInterval(watchTimer); watchTimer=null;
+        camStream?.getTracks().forEach(t=>t.stop()); camStream=null;
+        btn.textContent = 'Auto Recap: Off'; chip.textContent = '👀 Watch: off';
+        if (away && meetingReady) await endMissAndShowRecap();
+        away=false; awaySince=null; missStart=null;
+      }
+    }
+
+    async function attentionTick(){
+      const camEl = document.getElementById('cam');
+      const chip  = document.getElementById('attChip');
+      let faces = 1;
+      if (faceDetector && camEl.readyState >= 2) {
+        try { faces = (await faceDetector.detect(camEl))?.length || 0; } catch { faces = 1; }
+      } else {
+        faces = camEl.readyState >= 2 ? 1 : 0;
+      }
+
+      const now = Date.now();
+      if (faces === 0) {
+        if (!away) { away=true; awaySince=now; chip.textContent='👀 Watch: away'; }
+        if (awaySince && now-awaySince>2000 && !missStart) {
+          missStart = Math.max(now - PREROLL_MS, now - BUFFER_MS);
+          const st = document.getElementById('capStatus'); if (st) st.textContent = 'Away detected → will recap on return.';
+        }
+      } else {
+        if (away) {
+          if (!attentionTick._backSince) attentionTick._backSince = now;
+          if (now - attentionTick._backSince > 1000) {
+            attentionTick._backSince = null;
+            away=false; awaySince=null; chip.textContent='👀 Watch: here';
+            if (missStart && meetingReady) await endMissAndShowRecap();
+          }
+        } else {
+          attentionTick._backSince = null;
+        }
+      }
+    }
+
+    function writeCaptureRecap(text){
+      const ta = document.getElementById('recapTxtCap');
+      if (ta) ta.value = text || 'No summary available';
+    }
+
+    async function endMissAndShowRecap(){
+      const endTs = Date.now();
+      const blob  = buildSegment(missStart, endTs);
+      missStart   = null;
+
+      let summaryText = '';
+      if (blob) {
+        const fd = new FormData(); fd.append('audio', blob, 'missed.webm');
+        try {
+          const r = await fetch('http://127.0.0.1:5000/segment', { method:'POST', body:fd });
+          const j = await r.json();
+          summaryText = j.summary || j.recap || 'No summary available';
+        } catch {
+          summaryText = await window.collab.fetchRecap();
+        }
+      } else {
+        summaryText = await window.collab.fetchRecap();
+      }
+
+      writeCaptureRecap(summaryText);
+      const st = document.getElementById('capStatus'); if (st) st.textContent = 'Back on screen → recap updated above.';
+    }
+
+    /* ---------------------- Wiring ---------------------- */
+    // Local UI swap + notify main (for Safe Share thumbnails)
+    tabs.forEach(t => t.addEventListener('click', () => {
+      const tab = t.dataset.tab;
+      if (tab === 'recap') showRecap();
+      else if (tab === 'safeshare') showSafeShare();
+      else if (tab === 'capture') showCapture();
+      if (window.collab) window.collab.setMode(tab);
+    }));
+
+    // Hotkeys from main
+    window.collab.onMode((mode) => {
+      if(mode==='recap') showRecap();
+      else if(mode==='safeshare') showSafeShare();
+      else if(mode==='capture') showCapture();
+    });
+    window.collab.onSafeData((items)=> renderSafeData(items));
+    window.collab.onSafeError((msg)=> renderSafeError(msg));
+
+    document.getElementById('hideBtn').onclick = () => window.collab.hide();
+    document.getElementById('quitBtn').onclick = () => window.collab.quit();
+
+    // Default
+    showRecap();
   </script>
 </body>
 </html>
+
+
+
+
+
+
+
