@@ -1,5 +1,0 @@
-api_key: "7FPYP46-HRKMVW0-HC0KF0Z-E0N2W2P"
-model_server_base_url: "http://localhost:3001/api/v1"
-workspace_slug: "test"
-stream: true
-stream_timeout: 60
