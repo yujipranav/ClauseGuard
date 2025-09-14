@@ -1,5 +1,2 @@
-src/backend/venv/
-src/electron-app/dist/
-src/electron-app/node_modules/
-*.log
-.DS_Store
+/llm-venv/
+config.yaml
