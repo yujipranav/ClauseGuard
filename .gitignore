@@ -1,2 +1,4 @@
 /llm-venv/
 config.yaml
+transcripts/
+summaries/
