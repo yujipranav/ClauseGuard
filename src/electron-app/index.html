@@ -19,9 +19,6 @@
     .card{background:var(--card);border:1px solid var(--border);border-radius:14px;padding:12px;min-height:240px}
     .hint{color:var(--muted);font-size:12px;margin-bottom:8px}
     .row{display:flex;gap:10px;flex-wrap:wrap}
-    .thumb{width:160px;height:100px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
-    .blur{filter:blur(6px)}
-    .cap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
     .btn{cursor:pointer;border:1px solid var(--border);background:transparent;color:var(--fg);padding:6px 10px;border-radius:10px}
     .btn.primary{border-color:var(--accent);background:rgba(110,167,255,.1)}
     .btn.danger{border-color:var(--danger);color:var(--danger)}
@@ -29,8 +26,44 @@
     .row-right{display:flex;justify-content:flex-end;gap:8px;margin-top:8px}
     .row-between{display:flex;align-items:center;justify-content:space-between;gap:8px}
     .small{font-size:12px;color:var(--muted)}
-    video.cam{width:120px;height:72px;border-radius:10px;border:1px solid var(--border);background:#000}
+    video.cam{border-radius:10px;border:1px solid var(--border);background:#000}
     textarea{width:100%;height:150px;border:1px solid var(--border);border-radius:10px;background:#0c0e12;color:var(--fg);padding:10px;resize:none}
+    .thumb{width:160px;height:100px;object-fit:cover;border-radius:10px;border:1px solid var(--border)}
+    .blur{filter:blur(6px)}
+    .cap{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:160px}
+    
+    /* Global dark scrollbars (Chromium/Electron) */
+    *::-webkit-scrollbar {
+      width: 10px;               /* vertical scrollbar width */
+      height: 10px;              /* horizontal scrollbar height */
+    }
+
+    *::-webkit-scrollbar-track {
+      background: #0f1115;       /* same as --bg */
+      border-radius: 10px;
+    }
+
+    *::-webkit-scrollbar-thumb {
+      background: #262b36;       /* same as --border */
+      border-radius: 10px;
+      border: 2px solid #0f1115; /* creates "gap" around the thumb */
+    }
+
+    *::-webkit-scrollbar-thumb:hover {
+      background: #2f3543;       /* slightly lighter on hover */
+    }
+
+    /* Optional: thinner scrollbars for compact areas like textareas */
+    textarea::-webkit-scrollbar {
+      width: 8px;
+      height: 8px;
+    }
+
+    /* (Nice-to-have for Firefox; harmless in Electron/Chromium) */
+    :root {
+      scrollbar-color: #262b36 #0f1115; /* thumb track */
+      scrollbar-width: thin;
+    }
   </style>
 </head>
 <body>
@@ -42,50 +75,31 @@
     <button class="tb-btn" id="quitBtn">Quit</button>
   </div>
 
-  <!-- Tabs -->
+  <!-- Tabs (Recap removed) -->
   <div class="tabs">
-    <div class="tab active" data-tab="recap">Recap</div>
-    <div class="tab" data-tab="safeshare">Safe Share</div>
+    <div class="tab active" data-tab="safeshare">Safe Share</div>
     <div class="tab" data-tab="capture">Capture</div>
   </div>
 
   <!-- Content -->
   <div class="wrap">
     <div class="card" id="content">
-      <div class="hint">Press <b>Ctrl+Shift+R</b> (Recap) or <b>Ctrl+Shift+S</b> (Safe Share).</div>
+      <div class="hint">Choose <b>Safe Share</b> to preview blurred sensitive windows, or <b>Capture</b> to start meeting tap + auto recap.</div>
       <textarea readonly>Ready.</textarea>
-      <div class="row-right"><button class="btn" id="copyBtn" style="display:none">Copy Recap</button></div>
     </div>
   </div>
 
   <script>
-    // Guard in case preload failed (prevents white screen)
     if (!window.collab) {
       document.body.innerHTML =
         '<div style="padding:16px;color:#fff;background:#0f1115;font-family:system-ui">' +
         '<h3 style="margin:0 0 8px 0">Preload failed to load</h3>' +
-        '<div>Check <code>preload.js</code>. Open DevTools (F12) for details.</div></div>';
+        '<div>Check <code>preload.js</code>. Open DevTools (Ctrl+Alt+I) for details.</div></div>';
     }
 
     const content = document.getElementById('content');
     const tabs = Array.from(document.querySelectorAll('.tab'));
     function setActiveTab(name){ tabs.forEach(t=>t.classList.toggle('active',t.dataset.tab===name)); }
-
-    /* ------------------------- Recap ------------------------- */
-    async function showRecap(){
-      setActiveTab('recap');
-      content.innerHTML = `
-        <div class="hint">Latest recap (on-device).</div>
-        <textarea id="recapTxt" readonly>Fetching recap…</textarea>
-        <div class="row-right"><button id="copyBtn" class="btn">Copy Recap</button></div>
-      `;
-      const txt = await window.collab.fetchRecap();
-      const ta = document.getElementById('recapTxt');
-      ta.value = txt;
-      document.getElementById('copyBtn').onclick = async (ev)=>{
-        try{ await navigator.clipboard.writeText(txt); const b=ev.target;b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy Recap',900);}catch{}
-      };
-    }
 
     /* ---------------------- Safe Share ----------------------- */
     function showSafeShare(){
@@ -113,7 +127,7 @@
       if(grid) grid.innerHTML = `<span style="color:#ff9797">${msg}</span>`;
     }
 
-    /* --------- Meeting capture (continuous rolling buffer) --------- */
+    /* --------- Meeting capture (rolling buffer) --------- */
     const BUFFER_MS = 120000;  // last 2 minutes
     const PREROLL_MS = 15000;  // include 15s before "away"
     const SLICE_MS  = 2000;    // recorder timeslice
@@ -128,11 +142,9 @@
 
     async function ensureMeetingCapture(){
       if (meetingReady) return true;
-
       const status = document.getElementById('capStatus');
       let screen = null, mic = null;
 
-      // try screen with audio -> fall back to video-only
       try {
         screen = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: true });
       } catch (e1) {
@@ -155,9 +167,8 @@
       if (sysTrack) ctx.createMediaStreamSource(new MediaStream([sysTrack])).connect(dest);
       if (mic)      ctx.createMediaStreamSource(mic).connect(dest);
 
-      // need at least one audio source
       if (dest.stream.getAudioTracks().length === 0) {
-        if (status) status.textContent = 'No audio source detected. Share ENTIRE screen (enable “Share system audio”) or allow Microphone in Windows Privacy settings.';
+        if (status) status.textContent = 'No audio source detected. Share ENTIRE screen (enable “Share system audio”) or allow Microphone in Windows settings.';
         screen.getTracks().forEach(t=>t.stop());
         return false;
       }
@@ -185,40 +196,45 @@
       meetCtx = ctx; meetingReady = true;
       screenStream = screen; micStream = mic;
 
-      // optional preview if on Capture tab
       const preview = document.getElementById('preview');
       if (preview) { preview.srcObject = screen; preview.muted = true; preview.play().catch(()=>{}); }
 
       if (status) status.textContent = 'Meeting tap running (rolling buffer active).';
-      document.getElementById('startBtn')?.setAttribute('disabled','true');
-      document.getElementById('stopBtn')?.removeAttribute('disabled');
+      const sb = document.getElementById('startBtn'); if (sb) sb.setAttribute('disabled','true');
+      const st = document.getElementById('stopBtn'); if (st) st.removeAttribute('disabled');
       return true;
     }
 
     function manualStop(){
       if (meetRec && meetRec.state !== 'inactive') meetRec.stop();
-      screenStream?.getTracks().forEach(t=>t.stop());
-      micStream?.getTracks().forEach(t=>t.stop());
+      if (screenStream) screenStream.getTracks().forEach(t=>t.stop());
+      if (micStream)    micStream.getTracks().forEach(t=>t.stop());
       meetRec = null; meetCtx = null; screenStream = null; micStream = null;
       meetingReady = false; chunks.length = 0;
-      document.getElementById('startBtn')?.removeAttribute('disabled');
-      document.getElementById('stopBtn')?.setAttribute('disabled','true');
-      const st = document.getElementById('capStatus'); if (st) st.textContent = 'Stopped.';  // <- fixed
+      const sb = document.getElementById('startBtn'); if (sb) sb.removeAttribute('disabled');
+      const stp = document.getElementById('stopBtn'); if (stp) stp.setAttribute('disabled','true');
+      const st = document.getElementById('capStatus'); if (st) st.textContent = 'Stopped.';
     }
 
-    /* ---------- Capture tab (Recap + Capture together) ---------- */
+    /* ---------- Capture tab (camera up, recap bottom) ---------- */
     function showCapture(){
       setActiveTab('capture');
       content.innerHTML = `
-        <div class="hint">Missed recap (generated when you look away and return):</div>
-        <textarea id="recapTxtCap" readonly>Nothing yet.</textarea>
-        <div class="row-right"><button class="btn" id="copyBtnCap">Copy Recap</button></div>
-
-        <div class="row-between" style="margin-top:6px">
-          <div class="hint">Tap the meeting (screen + system audio if available + mic). Rolling 2-min buffer runs locally.</div>
+        <!-- Camera only (top) -->
+        <div class="row-between">
+          <div class="hint">Webcam (attention monitor). Turn on <b>Auto Recap</b> to detect when you look away.</div>
           <div class="chip" id="attChip">👀 Watch: off</div>
         </div>
 
+        <div class="row" style="align-items:center; margin:8px 0 12px 0">
+          <div style="display:flex;flex-direction:column;align-items:center;gap:6px;width:100%">
+            <video id="cam" class="cam" muted playsinline
+                   style="width:100%;max-width:520px;height:280px;border-radius:10px;border:1px solid var(--border);background:#000"></video>
+            <div class="small">Camera preview</div>
+          </div>
+        </div>
+
+        <!-- Controls -->
         <div class="row" style="margin-bottom:8px">
           <button class="btn primary" id="startBtn">Start Meeting Tap</button>
           <button class="btn danger" id="stopBtn" disabled>Stop</button>
@@ -227,26 +243,26 @@
 
         <div id="capStatus" class="hint">Idle.</div>
 
-        <div class="row" style="margin-top:8px;align-items:center">
-          <video id="preview" style="flex:1;min-width:220px;border:1px solid var(--border);border-radius:10px;background:#000" muted playsinline></video>
-          <div style="display:flex;flex-direction:column;align-items:center;gap:6px">
-            <video id="cam" class="cam" muted playsinline></video>
-            <div class="small">Camera preview</div>
-          </div>
-        </div>
+        <!-- Missed recap at bottom -->
+        <div class="hint" style="margin-top:12px">Missed recap (generated when you look away and return):</div>
+        <textarea id="recapTxtCap" readonly>Nothing yet.</textarea>
+        <div class="row-right"><button class="btn" id="copyBtnCap">Copy Recap</button></div>
       `;
+
       document.getElementById('startBtn').onclick = manualStart;
       document.getElementById('stopBtn').onclick  = manualStop;
       document.getElementById('toggleWatchBtn').onclick = toggleWatch;
       document.getElementById('copyBtnCap').onclick = async (ev)=>{
         const txt = document.getElementById('recapTxtCap').value || '';
-        try { await navigator.clipboard.writeText(txt); const b=ev.target;b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy Recap',900);} catch {}
+        try { await navigator.clipboard.writeText(txt);
+          const b=ev.target; b.textContent='Copied!'; setTimeout(()=>b.textContent='Copy Recap',900);
+        } catch {}
       };
     }
 
     async function manualStart(){
       const ok = await ensureMeetingCapture();
-      if (!ok) return; // status explains why
+      if (!ok) return;
     }
 
     /* ---------------- Auto Recap (webcam attention) ---------------- */
@@ -271,7 +287,8 @@
         watchTimer = setInterval(attentionTick, 400);
       } else {
         watching=false; clearInterval(watchTimer); watchTimer=null;
-        camStream?.getTracks().forEach(t=>t.stop()); camStream=null;
+        if (camStream) camStream.getTracks().forEach(t=>t.stop());
+        camStream=null;
         btn.textContent = 'Auto Recap: Off'; chip.textContent = '👀 Watch: off';
         if (away && meetingReady) await endMissAndShowRecap();
         away=false; awaySince=null; missStart=null;
@@ -334,23 +351,19 @@
       }
 
       writeCaptureRecap(summaryText);
-      const st = document.getElementById('capStatus'); if (st) st.textContent = 'Back on screen → recap updated above.';
+      const st = document.getElementById('capStatus'); if (st) st.textContent = 'Back on screen → recap updated below.';
     }
 
     /* ---------------------- Wiring ---------------------- */
-    // Local UI swap + notify main (for Safe Share thumbnails)
     tabs.forEach(t => t.addEventListener('click', () => {
       const tab = t.dataset.tab;
-      if (tab === 'recap') showRecap();
-      else if (tab === 'safeshare') showSafeShare();
+      if (tab === 'safeshare') showSafeShare();
       else if (tab === 'capture') showCapture();
       if (window.collab) window.collab.setMode(tab);
     }));
 
-    // Hotkeys from main
     window.collab.onMode((mode) => {
-      if(mode==='recap') showRecap();
-      else if(mode==='safeshare') showSafeShare();
+      if(mode==='safeshare') showSafeShare();
       else if(mode==='capture') showCapture();
     });
     window.collab.onSafeData((items)=> renderSafeData(items));
@@ -359,15 +372,8 @@
     document.getElementById('hideBtn').onclick = () => window.collab.hide();
     document.getElementById('quitBtn').onclick = () => window.collab.quit();
 
-    // Default
-    showRecap();
+    // Default to Safe Share
+    showSafeShare();
   </script>
 </body>
 </html>
-
-
-
-
-
-
-

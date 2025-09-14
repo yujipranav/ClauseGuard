@@ -10,7 +10,7 @@ function createWindow() {
     frame: false,
     resizable: false,
     alwaysOnTop: true,
-    show: false, // shown via hotkeys or tab click
+    show: false,
     webPreferences: {
       preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
@@ -20,7 +20,6 @@ function createWindow() {
 
   win.loadFile(path.join(__dirname, 'index.html'));
 
-  // Log renderer issues
   win.webContents.on('did-fail-load', (_e, code, desc) => {
     console.error('[did-fail-load]', code, desc);
   });
@@ -47,18 +46,20 @@ async function sendSafeShare() {
 }
 
 function registerHotkeys() {
+  // Ctrl+Shift+R -> Capture (since Recap tab is gone)
   globalShortcut.register('Control+Shift+R', () => {
     if (!win.isVisible()) win.show(); else win.focus();
-    win.webContents.send('mode', 'recap');
+    win.webContents.send('mode', 'capture');
   });
 
+  // Ctrl+Shift+S -> Safe Share thumbnails
   globalShortcut.register('Control+Shift+S', async () => {
     if (!win.isVisible()) win.show(); else win.focus();
     win.webContents.send('mode', 'safeshare');
     await sendSafeShare();
   });
 
-  // DevTools toggle for debugging
+  // Optional: DevTools
   globalShortcut.register('Control+Alt+I', () => win.webContents.toggleDevTools());
 }
 
@@ -72,7 +73,7 @@ ipcMain.handle('ui:mode', async (_e, mode) => {
   if (!win) return;
   if (!win.isVisible()) win.show(); else win.focus();
   win.webContents.send('mode', mode);
-  if (mode === 'safeshare') await sendSafeShare(); // refresh thumbnails on tab open
+  if (mode === 'safeshare') await sendSafeShare();
 });
 
 ipcMain.handle('window:hide', () => { if (win) win.hide(); });
